@@ -165,7 +165,7 @@ AddEventHandler('carwash:DoVehicleWashParticles', function(vehNet, washer, use_p
     if NetworkDoesEntityExistWithNetworkId(vehNet) then
         if washer == GetPlayerServerId(PlayerId()) then
             WaitingForWash = true
-            washer = true 
+            washer = true
         end
 
         local vehicle = NetworkGetEntityFromNetworkId(vehNet)
@@ -245,14 +245,19 @@ AddEventHandler('carwash:DoVehicleWashParticles', function(vehNet, washer, use_p
             for i = 1, #side_props, 1 do DeleteEntity(side_props[i].prop) end
             side_props = nil
         end
-        
+
         if washer == true then
             RequestNetworkControlOfEntity(vehicle)
             SetVehicleDirtLevel(vehicle, 0.0)
             WashDecalsFromVehicle(vehicle, 1.0)
             Wait(1000)
             FreezeEntityPosition(vehicle, false)
-            Notify('Vehicle Washed', 'success')
+            exports.PanNotifications:DisplayNotification({
+                title = 'Carwash',
+                body = 'Your vehicle has been washed!',
+                icon = 'fa-solid fa-hands-bubbles',
+                type = 'grey'
+            })
             WaitingForWash = false
             washingVehicle = false
         end
@@ -262,14 +267,8 @@ end)
 local function WashVehicle(vehicle, use_props)
     if washingVehicle then return end
     washingVehicle = true
-    TriggerCallback("carwash:CanPurchaseCarWash", function(paid)
-        if paid then
-            FreezeEntityPosition(vehicle, true)
-            TriggerServerEvent('carwash:DoVehicleWashParticles', VehToNet(vehicle), use_props)
-        else
-            washingVehicle = false
-        end
-    end)
+    FreezeEntityPosition(vehicle, true)
+    TriggerServerEvent('carwash:DoVehicleWashParticles', VehToNet(vehicle), use_props)
 end
 
 local function ShowHelpNotification(msg, thisFrame, beep, duration)
@@ -288,8 +287,8 @@ Citizen.CreateThread(function()
     while true do
         local sleep = 1000
         local PlayerPed = PlayerPedId()
-        if IsPedInAnyVehicle(PlayerPed, false) and not isWashingVehicle then
-            local myVehicle = GetVehiclePedIsIn(PlayerPed)
+        if IsPedInAnyVehicle(PlayerPed, false) and not washingVehicle then
+            local myVehicle = GetVehiclePedIsIn(PlayerPed, false)
             if GetPedInVehicleSeat(myVehicle, -1) == PlayerPed and (Config.only_dirty_vehicles == true and GetVehicleDirtLevel(myVehicle) >= 0.1 or Config.only_dirty_vehicles == false) then
                 local coords = GetEntityCoords(PlayerPed)
                 for _, carwash in pairs(Config.locations) do
@@ -312,7 +311,7 @@ Citizen.CreateThread(function()
 end)
 
 local function CreateCarwashBlip(coords, name)
-    local blip = AddBlipForCoord(coords)
+    local blip = AddBlipForCoord(table.unpack(coords))
 
     SetBlipSprite(blip, 100)
     SetBlipScale(blip, 0.8)
@@ -339,28 +338,28 @@ else
     Citizen.CreateThread(function()
         local currentCarWashBlip = nil
         local currentCarWashBlipLocation = nil
-    
+
         while true do
             local coords = GetEntityCoords(PlayerPedId())
             local closest = 999999
             local closestCoords, closestName 
-    
+
             for _, carwash in pairs(Config.locations) do
                 local dstcheck = #(coords.xy - carwash.location.xy)
-    
+
                 if dstcheck < closest and carwash.show_blip == true then
                     closest = dstcheck
                     closestCoords = carwash.location
                     closestName = carwash.name
                 end
             end
-    
+
             if currentCarWashBlipLocation ~= closestCoords then
                 if DoesBlipExist(currentCarWashBlip) then RemoveBlip(currentCarWashBlip) end
                 currentCarWashBlip = CreateCarwashBlip(closestCoords, closestName)
                 currentCarWashBlipLocation = closestCoords
             end
-    
+
             Citizen.Wait(10000)
         end
     end)
